@@ -273,3 +273,87 @@ async def test_update_me_sanitizes_xss(async_client: AsyncClient, authenticated_
     assert "&lt;iframe" in data["address"]
 
 
+@pytest.mark.asyncio
+async def test_update_me_username_success(async_client: AsyncClient, authenticated_user):
+    headers = authenticated_user["auth_headers"]
+    new_username = "new_cool_username"
+    resp = await async_client.patch(
+        "/api/v1/users/me",
+        json={"username": new_username},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["username"] == new_username
+
+    # Re-sending the same username should succeed
+    resp_same = await async_client.patch(
+        "/api/v1/users/me",
+        json={"username": new_username},
+        headers=headers,
+    )
+    assert resp_same.status_code == 200
+    assert resp_same.json()["username"] == new_username
+
+
+@pytest.mark.asyncio
+async def test_update_me_username_already_taken(async_client: AsyncClient, authenticated_user):
+    from app.core.database import AsyncSessionLocal
+    from app.models.user import User
+
+    headers = authenticated_user["auth_headers"]
+    taken_username = "another_existing_user"
+
+    # Create another user in DB
+    async with AsyncSessionLocal() as session:
+        other_user = User(
+            username=taken_username,
+            email="other_unique_user@example.com",
+            password_hash="fakehash",
+        )
+        session.add(other_user)
+        await session.commit()
+
+    resp = await async_client.patch(
+        "/api/v1/users/me",
+        json={"username": taken_username},
+        headers=headers,
+    )
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "Username is already taken"
+
+    # Cleanup
+    async with AsyncSessionLocal() as session:
+        await session.delete(other_user)
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_update_me_invalid_username_format(async_client: AsyncClient, authenticated_user):
+    headers = authenticated_user["auth_headers"]
+
+    # Invalid: contains @
+    resp_at = await async_client.patch(
+        "/api/v1/users/me",
+        json={"username": "user@domain"},
+        headers=headers,
+    )
+    assert resp_at.status_code == 422
+
+    # Invalid: too short (< 6 chars)
+    resp_short = await async_client.patch(
+        "/api/v1/users/me",
+        json={"username": "abcde"},
+        headers=headers,
+    )
+    assert resp_short.status_code == 422
+
+    # Invalid: contains spaces
+    resp_spaces = await async_client.patch(
+        "/api/v1/users/me",
+        json={"username": "bad user"},
+        headers=headers,
+    )
+    assert resp_spaces.status_code == 422
+
+
+

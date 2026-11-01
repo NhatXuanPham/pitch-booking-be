@@ -62,6 +62,20 @@ async def test_register_validation_username_with_at_sign(async_client: AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_register_validation_short_username(async_client: AsyncClient):
+    response = await async_client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": "abcde",
+            "email": "test@example.com",
+            "otp": "123456",
+            "password": "valid_password_123",
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_forgot_password_endpoint_removed(async_client: AsyncClient):
     response = await async_client.post(
         "/api/v1/auth/forgot-password",

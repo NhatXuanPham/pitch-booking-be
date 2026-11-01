@@ -49,6 +49,21 @@ class UserService:
         if not update_data:
             return user
 
+        new_username = update_data.get("username")
+        if new_username is not None:
+            if new_username == user.username:
+                update_data.pop("username", None)
+            else:
+                existing_user = await user_repo.get_by_username(db, new_username)
+                if existing_user and existing_user.id != user.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Username is already taken",
+                    )
+
+        if not update_data:
+            return user
+
         user = await user_repo.update(db, user, **update_data)
         await db.commit()
         await db.refresh(user)

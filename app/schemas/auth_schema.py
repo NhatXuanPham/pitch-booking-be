@@ -11,7 +11,7 @@ NormalizedEmail = Annotated[EmailStr, AfterValidator(lambda v: v.strip().lower()
 class RegisterRequest(BaseModel):
     email: NormalizedEmail
     otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
-    username: str = Field(..., min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.]+$")
+    username: str = Field(..., min_length=6, max_length=50, pattern=r"^[A-Za-z0-9_.]+$")
     password: str = Field(..., min_length=8, max_length=128)
 
 
