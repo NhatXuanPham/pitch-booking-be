@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.enum import Gender, UserRole
 from app.utils.validators import (
     normalize_gender,
+    sanitize_text,
     strip_empty_string,
     validate_avatar_url,
     validate_date_not_in_future,
@@ -63,7 +64,12 @@ class UserUpdateRequest(BaseModel):
     gender: Optional[Gender] = None
     bio: Optional[str] = Field(None, max_length=1000)
 
-    @field_validator("full_name", "phone_number", "address", "avatar_url", "bio", mode="before")
+    @field_validator("full_name", "address", "bio", mode="before")
+    @classmethod
+    def sanitize_user_inputs(cls, v: Any) -> Any:
+        return sanitize_text(v)
+
+    @field_validator("phone_number", "avatar_url", mode="before")
     @classmethod
     def strip_empty_strings(cls, v: Any) -> Any:
         return strip_empty_string(v)

@@ -249,3 +249,27 @@ async def test_update_invalid_gender(async_client: AsyncClient, authenticated_us
     )
     assert resp.status_code == 422
 
+
+@pytest.mark.asyncio
+async def test_update_me_sanitizes_xss(async_client: AsyncClient, authenticated_user):
+    headers = authenticated_user["auth_headers"]
+    xss_payload = {
+        "full_name": 'Hacker <script>alert("XSS")</script>',
+        "bio": '<img src=x onerror=alert("hacked")> Yêu bóng đá',
+        "address": '123 Đường Số 1 <iframe src="evil.com"></iframe>',
+    }
+    resp = await async_client.patch("/api/v1/users/me", json=xss_payload, headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Raw script, iframe, and img tags must be escaped
+    assert "<script>" not in data["full_name"]
+    assert "&lt;script&gt;" in data["full_name"]
+
+    assert "<img" not in data["bio"]
+    assert "&lt;img" in data["bio"]
+
+    assert "<iframe" not in data["address"]
+    assert "&lt;iframe" in data["address"]
+
+
