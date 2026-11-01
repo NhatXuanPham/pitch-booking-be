@@ -1,8 +1,25 @@
 from datetime import date
+import html
 import re
 from typing import Any
 
 from app.models.enum import Gender
+
+
+def sanitize_text(v: Any) -> Any:
+    """
+    Strip leading/trailing whitespace, escape HTML characters to prevent XSS,
+    and convert empty strings to None.
+    Non-string values are returned as-is.
+    """
+    if v is None:
+        return None
+    if isinstance(v, str):
+        v = v.strip()
+        if not v:
+            return None
+        return html.escape(v)
+    return v
 
 
 def normalize_gender(v: Any) -> Any:
