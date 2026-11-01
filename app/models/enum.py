@@ -7,6 +7,13 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 
+class Gender(str, Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
+
+
+
 class OtpPurpose(str, Enum):
     REGISTER = "REGISTER"
     RESET_PASSWORD = "RESET_PASSWORD"

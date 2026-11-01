@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import verify_access_token
-from app.schemas.user_schema import MeResponse, UserResponse, UserUpdateRequest
+from app.schemas.user_schema import MeResponse, PublicUserResponse, UserUpdateRequest
 from app.services.user_service import user_service
 
 router = APIRouter(tags=["users"])
@@ -26,16 +26,7 @@ async def update_me(
     return await user_service.update_me(db, payload["sub"], data)
 
 
-@router.put("/me", response_model=MeResponse)
-async def update_me_put(
-    data: UserUpdateRequest,
-    db: AsyncSession = Depends(get_db),
-    payload: dict = Depends(verify_access_token),
-):
-    return await user_service.update_me(db, payload["sub"], data)
-
-
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=PublicUserResponse)
 async def get_user_by_id(
     user_id: int,
     db: AsyncSession = Depends(get_db),

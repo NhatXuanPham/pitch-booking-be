@@ -1,6 +1,6 @@
 from datetime import date
 from typing import TYPE_CHECKING
-from sqlalchemy import Boolean, Date, JSON, String, Text
+from sqlalchemy import Boolean, Date, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .enum import UserRole
@@ -30,7 +30,6 @@ class User(TimestampMixin, Base):
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
-    interests: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user",

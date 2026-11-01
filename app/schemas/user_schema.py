@@ -1,13 +1,38 @@
 from datetime import date, datetime
-import re
 from typing import Any, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.models.enum import UserRole
+from app.models.enum import Gender, UserRole
+from app.utils.validators import (
+    normalize_gender,
+    strip_empty_string,
+    validate_avatar_url,
+    validate_date_not_in_future,
+    validate_phone_number,
+)
 
 
-class UserResponse(BaseModel):
+class BaseUserResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    @field_validator("gender", mode="before", check_fields=False)
+    @classmethod
+    def parse_gender(cls, v: Any) -> Any:
+        return normalize_gender(v)
+
+
+class PublicUserResponse(BaseUserResponse):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    gender: Optional[Gender] = None
+    bio: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class UserResponse(BaseUserResponse):
     id: int
     username: str
     email: EmailStr
@@ -19,13 +44,10 @@ class UserResponse(BaseModel):
     address: Optional[str] = None
     avatar_url: Optional[str] = None
     date_of_birth: Optional[date] = None
-    gender: Optional[str] = None
+    gender: Optional[Gender] = None
     bio: Optional[str] = None
-    interests: Optional[list[str]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-
-    model_config = {"from_attributes": True}
 
 
 class MeResponse(UserResponse):
@@ -38,25 +60,30 @@ class UserUpdateRequest(BaseModel):
     address: Optional[str] = Field(None, max_length=255)
     avatar_url: Optional[str] = Field(None, max_length=500)
     date_of_birth: Optional[date] = None
-    gender: Optional[str] = Field(None, max_length=20)
+    gender: Optional[Gender] = None
     bio: Optional[str] = Field(None, max_length=1000)
-    interests: Optional[list[str]] = Field(None, max_length=50)
 
-    @field_validator("full_name", "phone_number", "address", "avatar_url", "bio", "gender", mode="before")
+    @field_validator("full_name", "phone_number", "address", "avatar_url", "bio", mode="before")
     @classmethod
     def strip_empty_strings(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            v = v.strip()
-            return v if v else None
-        return v
+        return strip_empty_string(v)
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def validate_gender(cls, v: Any) -> Any:
+        return normalize_gender(v)
 
     @field_validator("phone_number")
     @classmethod
     def validate_phone_number(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        cleaned = re.sub(r"[\s\-\(\)\.]", "", v)
-        if not re.match(r"^\+?[0-9]{7,15}$", cleaned):
-            raise ValueError("Số điện thoại không hợp lệ (cần từ 7 đến 15 chữ số)")
-        return v
+        return validate_phone_number(v)
 
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url(cls, v: str | None) -> str | None:
+        return validate_avatar_url(v)
+
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_date_of_birth(cls, v: date | None) -> date | None:
+        return validate_date_not_in_future(v, field_name="date_of_birth")

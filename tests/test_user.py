@@ -62,7 +62,6 @@ async def test_get_me_initial_profile(async_client: AsyncClient, authenticated_u
     assert data["full_name"] is None
     assert data["phone_number"] is None
     assert data["address"] is None
-    assert data["interests"] is None
 
 
 @pytest.mark.asyncio
@@ -76,7 +75,6 @@ async def test_update_me_all_fields(async_client: AsyncClient, authenticated_use
         "date_of_birth": "1995-10-25",
         "gender": "male",
         "bio": "Đam mê bóng đá sân 7 và cầu lông",
-        "interests": ["Bóng đá", "Cầu lông", "Tiền đạo"],
     }
     response = await async_client.patch("/api/v1/users/me", json=update_payload, headers=headers)
     assert response.status_code == 200
@@ -86,15 +84,15 @@ async def test_update_me_all_fields(async_client: AsyncClient, authenticated_use
     assert data["address"] == update_payload["address"]
     assert data["avatar_url"] == update_payload["avatar_url"]
     assert data["date_of_birth"] == update_payload["date_of_birth"]
-    assert data["gender"] == update_payload["gender"]
+    assert data["gender"] == "MALE"
     assert data["bio"] == update_payload["bio"]
-    assert data["interests"] == update_payload["interests"]
 
     # Verify persistence via GET /me
     get_resp = await async_client.get("/api/v1/users/me", headers=headers)
     assert get_resp.status_code == 200
     assert get_resp.json()["full_name"] == "Nguyễn Văn A"
     assert get_resp.json()["phone_number"] == "0912345678"
+    assert get_resp.json()["gender"] == "MALE"
 
 
 
@@ -139,11 +137,30 @@ async def test_get_user_by_id(async_client: AsyncClient, authenticated_user):
     me_resp = await async_client.get("/api/v1/users/me", headers=headers)
     user_id = me_resp.json()["id"]
 
-    # Fetch user profile by ID
+    # Fetch user profile by ID (public view)
     profile_resp = await async_client.get(f"/api/v1/users/{user_id}", headers=headers)
     assert profile_resp.status_code == 200
-    assert profile_resp.json()["id"] == user_id
-    assert profile_resp.json()["username"] == authenticated_user["identity"]["username"]
+    public_data = profile_resp.json()
+    assert public_data["id"] == user_id
+    assert public_data["username"] == authenticated_user["identity"]["username"]
+    assert "gender" in public_data
+    assert public_data["gender"] is None
+    # Sensitive PII must not be exposed to other users
+    assert "email" not in public_data
+    assert "phone_number" not in public_data
+    assert "address" not in public_data
+    assert "date_of_birth" not in public_data
+    assert "is_email_verified" not in public_data
+
+    # Update gender and verify GET by ID returns updated gender
+    await async_client.patch(
+        "/api/v1/users/me",
+        json={"gender": "FEMALE"},
+        headers=headers,
+    )
+    updated_profile_resp = await async_client.get(f"/api/v1/users/{user_id}", headers=headers)
+    assert updated_profile_resp.status_code == 200
+    assert updated_profile_resp.json()["gender"] == "FEMALE"
 
 
 @pytest.mark.asyncio
@@ -183,3 +200,52 @@ async def test_get_me_disabled_user(async_client: AsyncClient, authenticated_use
     )
     assert resp_patch.status_code == 403
     assert resp_patch.json()["detail"] == "Account has been disabled"
+
+
+@pytest.mark.asyncio
+async def test_update_phone_number_cleaned(async_client: AsyncClient, authenticated_user):
+    headers = authenticated_user["auth_headers"]
+    resp = await async_client.patch(
+        "/api/v1/users/me",
+        json={"phone_number": "+84 (912) 345-678"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["phone_number"] == "+84912345678"
+
+
+@pytest.mark.asyncio
+async def test_update_invalid_avatar_url(async_client: AsyncClient, authenticated_user):
+    headers = authenticated_user["auth_headers"]
+    resp = await async_client.patch(
+        "/api/v1/users/me",
+        json={"avatar_url": "javascript:alert(1)"},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_future_date_of_birth(async_client: AsyncClient, authenticated_user):
+    from datetime import date, timedelta
+
+    headers = authenticated_user["auth_headers"]
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    resp = await async_client.patch(
+        "/api/v1/users/me",
+        json={"date_of_birth": tomorrow},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_invalid_gender(async_client: AsyncClient, authenticated_user):
+    headers = authenticated_user["auth_headers"]
+    resp = await async_client.patch(
+        "/api/v1/users/me",
+        json={"gender": "alien"},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
