@@ -135,3 +135,21 @@ async def test_reset_password_short_password(async_client: AsyncClient):
         },
     )
     assert response.status_code == 422
+
+
+def test_email_html_escapes_xss():
+    from app.services.email_service import _build_otp_html
+
+    html_content = _build_otp_html(
+        title="Verify <script>",
+        username='Player <script>alert("XSS")</script>',
+        description='Please enter code: <img src=x onerror=steal()>',
+        otp="123456",
+        is_reset=False,
+    )
+
+    assert "<script>" not in html_content
+    assert "&lt;script&gt;" in html_content
+    assert "<img" not in html_content
+    assert "&lt;img" in html_content
+

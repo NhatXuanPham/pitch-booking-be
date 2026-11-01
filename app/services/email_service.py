@@ -1,8 +1,9 @@
 import asyncio
-import logging
-import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import html
+import logging
+import smtplib
 
 from app.core.config import settings
 
@@ -16,6 +17,11 @@ def _build_otp_html(
     otp: str,
     is_reset: bool = False,
 ) -> str:
+    title = html.escape(title)
+    username = html.escape(username)
+    description = html.escape(description)
+    otp = html.escape(otp)
+
     box_bg = "#fef2f2" if is_reset else "#f0fdf4"
     box_border = "#ef4444" if is_reset else "#22c55e"
     code_color = "#b91c1c" if is_reset else "#15803d"
