@@ -56,6 +56,7 @@ class MeResponse(UserResponse):
 
 
 class UserUpdateRequest(BaseModel):
+    username: Optional[str] = Field(None, min_length=6, max_length=50, pattern=r"^[A-Za-z0-9_.]+$")
     full_name: Optional[str] = Field(None, max_length=255)
     phone_number: Optional[str] = Field(None, max_length=20)
     address: Optional[str] = Field(None, max_length=255)
@@ -69,7 +70,7 @@ class UserUpdateRequest(BaseModel):
     def sanitize_user_inputs(cls, v: Any) -> Any:
         return sanitize_text(v)
 
-    @field_validator("phone_number", "avatar_url", mode="before")
+    @field_validator("username", "phone_number", "avatar_url", mode="before")
     @classmethod
     def strip_empty_strings(cls, v: Any) -> Any:
         return strip_empty_string(v)
